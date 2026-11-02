@@ -1,0 +1,9 @@
+user_agent_template: "fb26-research/0.1 (University of Copenhagen academic research; contact: {email})"
+default_min_interval_s: 3.0
+host_min_intervals:
+  # PI decision 2026-10-17: stricter than brief WS1b's 1 req/s.
+  web.archive.org: 3.0
+max_retries: 5
+backoff_base_s: 5
+backoff_max_s: 300
+timeout_s: 60

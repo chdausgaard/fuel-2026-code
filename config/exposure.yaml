@@ -1,0 +1,83 @@
+# Exposure constants and sources (WS3; memo §5.2, DECISIONS 2026-10-19 "Household VMT from ACS").
+# Every value carries a citation. Values marked `derived` are computed in src/fb26/etl/exposure.py from the cited
+# inputs; the number printed here is what the 2026-10-19 build produced and is checked against the rebuild.
+# A uniform constant (MPG, miles per vehicle) only rescales beta; in the composite, speed, days, occ and M_nc set
+# the weight of the commute part against the non-commute part.
+
+acs:
+  vintage: 2024            # 2020-2024 five-year release; held fixed (memo §5.2)
+  note: >
+    B08136 exists in the release but the API returns null for about 57% of counties (same in the 2022 and 2023
+    vintages). Commute minutes therefore come from B08134 bin midpoints (below); B08136 is used only to fit the open
+    bin and to validate.
+
+cbp:
+  year: 2023               # latest year served by api.census.gov/data/<year>/cbp on 2026-10-19 (2024 returns 404)
+  naics_oil_gas: ['211', '213111', '213112']   # memo §5.4
+
+fhwa_vm1:
+  url: https://www.fhwa.dot.gov/policyinformation/statistics/2024/xls/vm1.xlsx
+  citation: FHWA Highway Statistics 2024, Table VM-1 (sheet 2024_VM-1, updated February 2026), column "All Light Duty Vehicles"
+  # Rebuild check values (tolerance 1e-6 relative): the parser reads the workbook, these are guards only.
+  expected:
+    light_duty_vmt_million_miles: 2924107.45490795      # row "Total Rural and Urban", 2024, cell I27
+    light_duty_registrations: 271085742                 # row "Number of motor vehicles registered", 2024, cell I29
+    mpg: 23.430673216944609                             # row "Average miles traveled per gallon of fuel consumed", 2024, cell I39
+  # M_veh = I27 x 1e6 / I29 = 10,786.65 (equals the sheet's own "Average miles traveled per vehicle", cell I31).
+  # MPG = I39 (= I27 / I35, light-duty VMT over light-duty fuel).
+
+nhts:
+  # Primary year. Only the commute share (commute / all-purpose VMT per household) and the speed enter the build.
+  # 2017 NHTS adjusted VMT per household (19,642) matches FHWA VM-1 light-duty VMT per ACS household
+  # (10,787 x 1.825 vehicles = 19,685), so the NHTS shares sit on the FHWA level. The 2022 NHTS
+  # reports 1,990 person trips per household against 3,140 in 2017 (2022 Summary Table 3-2, PDF p.26) after a
+  # switch to push-to-web with no travel log (Section 1.2, PDF p.16-17), and its VMT per household (14,489) is 26% below that level.
+  primary_year: 2017
+  years:
+    2017:
+      document: >
+        Federal Highway Administration, Summary of Travel Trends: 2017 National Household Travel Survey (FHWA-PL-18-019),
+        https://nhts.ornl.gov/assets/2017_nhts_summary_travel_trends.pdf (raw copy sha256 prefix 2171916f9929)
+      commute_vmt_per_household: 5773.9      # Table 6a, "2017 Adjusted", column To/From Work (PDF p.26, printed p.19)
+      total_vmt_per_household: 19641.8       # Table 6a, "2017 Adjusted", column All Purposes (PDF p.26, printed p.19)
+      speed_mph: 27.08                       # Table 27, Private Vehicle, "2017 Adj.", Average Commute Speed (PDF p.86, printed p.79)
+    2022:
+      document: >
+        Federal Highway Administration, Summary of Travel Trends: 2022 National Household Travel Survey,
+        https://nhts.ornl.gov/assets/2022/pub/2022_NHTS_Summary_Travel_Trends.pdf (raw copy sha256 prefix 8d87ffa4d6d8)
+      commute_vmt_per_household: 4357        # Table 3-4, row 2022, column To/From Work (PDF p.27, printed p.20)
+      total_vmt_per_household: 14489         # Table 3-4, row 2022, column All (PDF p.27, printed p.20)
+      speed_mph: 26.59                       # Table 7-4, Privately owned vehicle, 2022, Average Commute Speed (PDF p.58, printed p.51)
+
+derived_constants:
+  # days: effective round trips per vehicle commuter per year, solved so that national commute VMT is the NHTS share
+  # of household VMT (commute_vmt_per_household / total_vmt_per_household, 2017: 5773.9 / 19641.8 = 0.2940) of
+  # M_veh x vehicles per household:
+  #   days = share x M_veh x vehicles_hh_nat x households / (2 x speed/60 x sum_c(T_alone + T_carpool/occ))
+  # The 2026-10-19 build gives 277.9, above the 250-odd workdays in a year, so it is a scale factor, not a count of
+  # days: NHTS "to/from work" miles include trip chaining and other work-purpose trips that home-to-work minutes
+  # times speed do not. Only the product 2 x days x speed / 60 matters, so the speed value cancels nationally.
+  days:
+    value: null
+    method: calibrate_national_commute_share_to_nhts
+  # occ: workers per carpool vehicle, from ACS B08301_005..009 national totals (workers in 2-, 3-, 4-, 5-6- and
+  # 7+-person carpools; a size-k group is n_k / k vehicles, so occ = sum(n_k) / sum(n_k / k)). The NHTS work-trip occupancy (2017 Table 16: 1.18 person-miles per vehicle-mile, PDF p.65) averages
+  # solo drivers and carpools and cannot be the divisor for carpool minutes.
+  occ:
+    value: null
+    method: acs_national_carpool_mean_persons
+    midpoints: {B08301_005E: 2.0, B08301_006E: 3.0, B08301_007E: 4.0, B08301_008E: 5.5, B08301_009E: 7.0}
+    midpoint_citation: analyst convention (midpoint of 5-6; lower bound of 7-or-more); not sourced. Moving 5.5 to 5 or 6 and 7 to 8 gives occ between 2.248 and 2.255 (base 2.251).
+  # M_nc: non-commute miles per vehicle = M_veh x (1 - commute VMT / total VMT per household), shares from the
+  # NHTS year above (2017: 1 - 5773.9 / 19641.8 = 0.7060, so M_nc = 7,616). With this and the days rule the national
+  # mean of household VMT is identical under the two measures (M_veh x vehicles per household).
+  m_nc:
+    value: null
+    method: m_veh_times_one_minus_nhts_commute_share
+  # Commute minutes: B08134 (means of transportation by travel-time bin), drove alone (022-030) and carpooled
+  # (032-040). Bin midpoints are analyst convention for whole-minute bins; the 60+ bin value is fitted by least
+  # squares to B08136 car minutes over the counties where B08136 is published.
+  commute_minute_bins:
+    labels: ['<10', '10-14', '15-19', '20-24', '25-29', '30-34', '35-44', '45-59', '60+']
+    midpoints_closed_bins: [4.5, 12.0, 17.0, 22.0, 27.0, 32.0, 39.5, 52.0]
+    midpoint_60_plus: {value: null, method: least_squares_vs_b08136_car_minutes}

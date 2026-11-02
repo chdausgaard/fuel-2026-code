@@ -1,0 +1,72 @@
+# Design memo §5.1 governs; 2008 and 2012 are baseline/lag windows only.
+elections:
+  2008:
+    election_day: "2008-11-04"
+    start: "2008-10-14"
+    end: "2008-11-03"
+    type: presidential
+    baseline: null
+    lag_window: null
+  2012:
+    election_day: "2012-11-06"
+    start: "2012-10-16"
+    end: "2012-11-05"
+    type: presidential
+    baseline: null
+    lag_window: null
+  2014:
+    election_day: "2014-11-04"
+    start: "2014-10-14"
+    end: "2014-11-03"
+    type: midterm
+    baseline: 2012
+    lag_window: [2008, 2012]
+  2016:
+    election_day: "2016-11-08"
+    start: "2016-10-18"
+    end: "2016-11-07"
+    type: presidential
+    baseline: 2012
+    lag_window: [2008, 2012]
+  2018:
+    election_day: "2018-11-06"
+    start: "2018-10-16"
+    end: "2018-11-05"
+    type: midterm
+    baseline: 2016
+    lag_window: [2012, 2016]
+  2020:
+    election_day: "2020-11-03"
+    start: "2020-10-13"
+    end: "2020-11-02"
+    type: presidential
+    baseline: 2016
+    lag_window: [2012, 2016]
+  2022:
+    election_day: "2022-11-08"
+    start: "2022-10-18"
+    end: "2022-11-07"
+    type: midterm
+    baseline: 2020
+    lag_window: [2016, 2020]
+  2024:
+    election_day: "2024-11-05"
+    start: "2024-10-15"
+    end: "2024-11-04"
+    type: presidential
+    baseline: 2020
+    lag_window: [2016, 2020]
+  2026:
+    election_day: "2026-11-03"
+    start: "2026-10-13"
+    end: "2026-11-02"
+    type: midterm
+    baseline: 2024
+    lag_window: [2020, 2024]
+secondary_windows:
+  S-a:
+    rule: "January 1–31 of year t"
+    used_for: "baseline"
+  S-b:
+    rule: "Highest 28-day mean earlier in year t"
+    used_for: "relief from peak"

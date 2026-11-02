@@ -1,0 +1,149 @@
+# Geography harmonization for results (WS5). Target: 2024-vintage county-equivalents (ACS 2024 5-year county list,
+# fetched by fb26.scrape.medsl into data/raw/census_geo/). Read by fb26.etl.results.
+acs_vintage: 2024
+
+# Source units that are renamed or merged into a different county code. Matched on state and the raw code
+# in the MEDSL county_fips column (county file or precinct files); the name is a guard.
+unit_recodes:
+  - state: SD
+    source_fips: ['46113']
+    name: OGLALA LAKOTA|SHANNON   # the 2012 county file still names the unit SHANNON
+    to: '46102'
+    reason: Shannon County (46113) was renamed Oglala Lakota County and recoded 46102 in 2015; ACS 2024 uses 46102.
+  - state: VA
+    source_fips: ['51515']
+    name: BEDFORD
+    years: [2000, 2004, 2008, 2012]
+    to: '51019'
+    reason: >
+      Bedford city (51515) was merged into Bedford County (51019) in 2013; the 2000-2012 county file still lists both. The
+      2016 file lists the city with zero votes and is left as it is (existing rows are not touched).
+  - state: MO
+    source_fips: ['2938000', '36000']
+    name: KANSAS CITY
+    to: '29095'
+    reason: >
+      MEDSL reports the Kansas City Board of Election Commissioners area as its own unit. That board serves only the
+      Jackson County part of the city (Clay, Platte and Cass parts are run by those counties and already sit in their
+      county rows), so the unit is merged into Jackson County. The statewide reconciliation (MO president 2020, MO
+      Senate 2022) is the check: it only passes if the unit is counted exactly once.
+
+# Connecticut: towns -> planning regions. Town code = last five digits of the 10-digit MEDSL jurisdiction_fips (county
+# part is the legacy county in 2020 and 2022 MEDSL files); the region comes from the Census 2022 ACS relationship file
+# (GEOID_COUSUB_22 = 09 + region code + town code). See reports/audit/S19_geography.md.
+connecticut:
+  state_fips: '09'
+  region_file_key: ct_cousub22_tract22
+  expected_regions: 9
+  expected_towns: 169
+  # misspelled town names in the MEDSL 2016 precinct file -> Census town code
+  name_aliases: {'new millford': '52630'}
+  # misspelled town in the OpenElections 2012 file (spaces ignored)
+  name_aliases_2012: {'meridien': '46520'}
+
+# Alaska: results are by election district, not borough. Kept and flagged; never matched to ACS counties.
+alaska:
+  state_fips: '02'
+  flag: excluded_ak
+
+# Statewide units that cannot be assigned to a county (kept out of the county file, reported with their votes).
+# Matched on raw county_fips or name; anything else without a county code is reported as unassigned_unit.
+statewide_units:
+  - {state: ME, source_fips: ['23000'], name_contains: STATEWIDE, reason: Maine statewide UOCAVA ballots}
+  - {state: RI, source_fips: ['00000'], name_contains: '', reason: Rhode Island unit without a county code}
+
+# Vote-mode labels that already hold the all-modes total of a precinct line. Within a precinct and candidate line,
+# rows with one of these modes win over the other mode rows. UNSPECIFIED is included because in New York (Chenango,
+# Otsego and others) it carries the precinct total next to ELECTION_DAY and ABSENTEE rows (checked against the MEDSL
+# county-level Senate file); it only coexists with other modes in NY.
+total_modes: [TOTAL, UNSPECIFIED]
+
+# Rows whose "candidate" is a ballot category rather than a candidate. Excluded from candidate votes and tallied
+# per race in the reconciliation table (non_candidate_votes).
+non_candidate_pattern: >-
+  ^(BLANK.*|VOID|CONTEST TOTALS?|OVERVOTES?|UNDERVOTES?|OVER VOTES?|UNDER VOTES?|ABSENTEE.*|AFFIDAVIT|FEDERAL|PUBLIC COUNTER|MANUALLY COUNTED.*|SPECIAL VOTES|REGISTERED VOTERS|BALLOTS CAST|TOTAL.*|NO VOTE|NOT ASSIGNED|MILITARY.*|FEDERAL BALLOTS|FEDERAL VOTES|STATE BALLOTS|STATE VOTES|ELIGIBLE|CAST VOTES|REJECTED.*|TOTAL VOTES.*|VOTES CAST|BALLOTS.*)$
+
+# Precinct names that may mark a county subtotal row (Idaho 'COUNTY TOTAL', Michigan 'Mackinac County Michigan - Total').
+# A row is dropped only if the other precinct rows of the same county and candidate sum to it (within tolerance);
+# otherwise it is kept and counted in kept_unverified_subtotal_rows.
+subtotal_precinct_pattern: '(\bTOTALS?\b|\bSUMMARY\b|ALL PRECINCTS)'
+subtotal_tolerance: 0.005
+
+# Brief §8: county sums vs statewide totals.
+reconciliation_tolerance: 0.005
+
+# Candidates whose party the source leaves blank although they are the major-party nominees. Hand-coded; every entry is
+# shown in the race table (edge_flags: party_from_config_override) and listed in the return for PI review.
+party_overrides:
+  - {state: NM, office: GOVERNOR, candidate: MICHELLE LUJAN GRISHAM, party: D,
+     note: 'MEDSL 2022 New Mexico rows carry no party labels; incumbent Democratic nominee.'}
+  - {state: NM, office: GOVERNOR, candidate: MARK V RONCHETTI, party: R,
+     note: 'MEDSL 2022 New Mexico rows carry no party labels; Republican nominee.'}
+  - {state: OR, office: GOVERNOR, candidate: PATRICK STARNES, from_label: DEMOCRAT, party: other,
+     note: 'MEDSL 2018 labels him DEMOCRAT; Wikipedia 2018 Oregon governor table lists Patrick Starnes (Independent Party).'}
+  - {state: MS, office: SENATE, candidate: "SHAWN O'HARA", from_label: REPUBLICAN, party: other,
+     note: 'MEDSL 2018 labels him REPUBLICAN; Wikipedia 2018 Mississippi Senate table lists Shawn O Hara (Reform).'}
+  - {state: WY, office: GOVERNOR, candidate: THERESA A LIVINGSTON, from_label: LIBERTARIAN, party: D,
+     note: 'MEDSL labels her LIBERTARIAN; the Wyoming Secretary of State 2022 General Statewide Candidates Official Summary (p. 2) lists Theresa A. Livingston (D).'}
+
+# Governor county cells that the MEDSL files lack or have short, found by comparing every parsed Wikipedia 'results by
+# county' table with the county sums (24 states) and by the statewide reconciliation. Patched from the Wikipedia table
+# of the same race (D, R, total) and flagged patched_from_wikipedia_county_table.
+county_patches:
+  - {race: 2022_MI_GOV, state: MI, geo_id: '26163', wikipedia_county: Wayne,
+     reason: 'MEDSL Michigan file is about 31k Whitmer and 12k Dixon votes short in Wayne County; statewide governor reconciliation fails by -1.2% without the patch.'}
+  - {race: 2022_AR_GOV, state: AR, geo_id: '05107', wikipedia_county: Phillips,
+     reason: 'Phillips County has no rows in the MEDSL Arkansas file; statewide D fails by -0.76% without the patch.'}
+  - {race: 2022_ID_GOV, state: ID, geo_id: '16077', wikipedia_county: Power,
+     reason: 'Power County is all zeros in the MEDSL Idaho governor rows.'}
+
+  # 2012 president, New York: the MEDSL county file lists only the Democratic and Republican ballot lines, so the
+  # Working Families (Obama) and Conservative (Romney) votes sit in "OTHER". All 62 counties come from the Wikipedia table.
+  - {race: 2012_NY_PRES, state: NY, wikipedia_county: '*',
+     reason: 'County file omits fusion-line votes (statewide D -3.3%, R -10.5% against MEDSL statewide file).'}
+  # 2018
+  - {race: 2018_NJ_SEN, state: NJ, geo_id: '34023', wikipedia_county: Middlesex,
+     reason: 'Middlesex County is about 27k D and 16k R votes short in MEDSL (all other NJ counties match the Wikipedia table).'}
+  - {race: 2018_IN_SEN, state: IN, geo_id: '18043', wikipedia_county: Floyd,
+     reason: 'MEDSL has 2,023 D votes in Floyd County against 14,070 in the Wikipedia table.'}
+  - {race: 2018_IN_SEN, state: IN, geo_id: '18175', wikipedia_county: Washington,
+     reason: 'Washington County has no rows in MEDSL.'}
+  - {race: 2018_NY_SEN, state: NY, geo_id: '36045', wikipedia_county: Jefferson, reason: 'no rows in MEDSL'}
+  - {race: 2018_NY_SEN, state: NY, geo_id: '36063', wikipedia_county: Niagara, reason: 'no rows in MEDSL'}
+  - {race: 2018_NY_SEN, state: NY, geo_id: '36111', wikipedia_county: Ulster, reason: 'no rows in MEDSL'}
+  - {race: 2018_NY_GOV, state: NY, geo_id: '36003', wikipedia_county: Allegany, reason: 'no rows in MEDSL'}
+  - {race: 2018_NY_GOV, state: NY, geo_id: '36037', wikipedia_county: Genesee, reason: 'no rows in MEDSL'}
+  - {race: 2018_NY_GOV, state: NY, geo_id: '36071', wikipedia_county: Orange, reason: 'no rows in MEDSL'}
+  - {race: 2018_NY_GOV, state: NY, geo_id: '36097', wikipedia_county: Schuyler, reason: 'no rows in MEDSL'}
+  - {race: 2018_NY_GOV, state: NY, geo_id: '36103', wikipedia_county: Suffolk, reason: 'no rows in MEDSL'}
+
+# Governor reference totals read from an official state canvass (take precedence over the Wikipedia table). Values are
+# transcribed from the PDF page cited; build asserts the raw file's SHA-256 so a changed file is noticed.
+official_references:
+  WY:
+    url: https://sos.wyo.gov/Elections/Docs/2022/Results/General/2022_General_Statewide_Candidates_Summary.pdf
+    sha256: 0fa06cb64a5924a4b646d0840d0c2b61075bf1d4c10c1ea3848e0e6bf176f73b
+    page: 2 (Statewide Candidates Official Summary, Governor, Total row)
+    d: 30686        # Theresa A. Livingston (D)
+    r: 143696       # Mark Gordon (R)
+    candidate_votes: 194000   # Gordon + Livingston + Baldes 8,157 + write-ins 11,461
+
+# Context for reconciliation rows that fail or need the unassigned-units rule.
+reconciliation_notes:
+  2024_ME_PRES: >-
+    The gap (about 5.3k D and 1.0k R votes) matches Maine's statewide UOCAVA ballots, which the 2016 and 2020 MEDSL
+    files carry as a separate unit but neither 2024 MEDSL file (county or Maine precinct file) does. The county sums
+    equal the Wikipedia county table (D 430,041 vs 430,342) within 0.1%. No county is affected; left failed.
+  2004_AK_PRES: >-
+    Alaska is excluded (election districts, not boroughs); the 2004 district rows in the county file sum to 488,693
+    candidate votes against 312,598 statewide. Never matched to a county.
+
+# Reference totals transcribed from a stored Wikipedia page whose table the parser cannot read (no party column).
+manual_references:
+  2018_MS_SEN_SPECIAL:
+    url: https://en.wikipedia.org/wiki/2018_United_States_Senate_special_election_in_Mississippi
+    sha256: 89921f9b42d932fd09705925066c2f29e4d59ea549a3b50addcf72ce220f184e
+    note: Nov 6 first-round table; D = Espy 386,742 + Bartee 13,852; R = Hyde-Smith 389,995 + McDaniel 154,878.
+    d: 400594
+    r: 544873
+    candidate_votes: 945467

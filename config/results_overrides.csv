@@ -1,0 +1,5 @@
+year,state_po,source_key,alt_reference,reason
+2004,ME,aa_pres,,"MEDSL county file is incomplete (Cumberland County short; county D 364,153 against the statewide 396,842)."
+2004,MS,aa_pres,wikipedia,"MEDSL county file is incomplete in most counties (Oktibbeha short). The MEDSL statewide reference is itself off (Bush 672,660, Kerry 457,766); the certified canvass as transcribed in Wikipedia (Bush 684,981, Kerry 458,094) matches the replacement to the vote."
+2004,NY,aa_pres,,"MEDSL county file pools the Conservative, Working Families and Independence lines under OTHER; the replacement has each candidate's lines summed."
+2008,NY,aa_pres,,"MEDSL county file leaves about 35k Obama and 10k McCain fusion-line votes out of the D and R rows; the replacement has each candidate's lines summed."

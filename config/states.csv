@@ -1,0 +1,52 @@
+state_abbr,state_fips,state_name,padd_group,padd
+AL,01,Alabama,3,3
+AK,02,Alaska,5,5
+AZ,04,Arizona,5,5
+AR,05,Arkansas,3,3
+CA,06,California,5,5
+CO,08,Colorado,4,4
+CT,09,Connecticut,1A,1
+DE,10,Delaware,1B,1
+DC,11,District of Columbia,1B,1
+FL,12,Florida,1C,1
+GA,13,Georgia,1C,1
+HI,15,Hawaii,5,5
+ID,16,Idaho,4,4
+IL,17,Illinois,2,2
+IN,18,Indiana,2,2
+IA,19,Iowa,2,2
+KS,20,Kansas,2,2
+KY,21,Kentucky,2,2
+LA,22,Louisiana,3,3
+ME,23,Maine,1A,1
+MD,24,Maryland,1B,1
+MA,25,Massachusetts,1A,1
+MI,26,Michigan,2,2
+MN,27,Minnesota,2,2
+MS,28,Mississippi,3,3
+MO,29,Missouri,2,2
+MT,30,Montana,4,4
+NE,31,Nebraska,2,2
+NV,32,Nevada,5,5
+NH,33,New Hampshire,1A,1
+NJ,34,New Jersey,1B,1
+NM,35,New Mexico,3,3
+NY,36,New York,1B,1
+NC,37,North Carolina,1C,1
+ND,38,North Dakota,2,2
+OH,39,Ohio,2,2
+OK,40,Oklahoma,2,2
+OR,41,Oregon,5,5
+PA,42,Pennsylvania,1B,1
+RI,44,Rhode Island,1A,1
+SC,45,South Carolina,1C,1
+SD,46,South Dakota,2,2
+TN,47,Tennessee,2,2
+TX,48,Texas,3,3
+UT,49,Utah,4,4
+VT,50,Vermont,1A,1
+VA,51,Virginia,1C,1
+WA,53,Washington,5,5
+WV,54,West Virginia,1C,1
+WI,55,Wisconsin,2,2
+WY,56,Wyoming,4,4

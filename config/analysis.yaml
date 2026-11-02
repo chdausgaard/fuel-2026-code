@@ -1,0 +1,64 @@
+# Registered 2026 analysis specifications.
+primary:
+  measure: w21
+  controls: C1
+  exposure: commute_vehicles
+mu_pt:
+  source: hf_nodrift  # Annual SEDS remains available as seds.
+ri:
+  k: 9999
+  seed: 20261019
+wild:
+  b: 9999
+  seed: 20261020
+level:
+  rule: per_market          # per_market | d22
+  county_share: 0.90
+  state_county_share: 0.75
+  min_days: 7
+completeness:
+  pct_expected_counted: 90.0
+mock:
+  level: auto               # auto: follow substate.source (county markets at the level the rule sets; metro source forces metro) | metro
+  window: S1                # price window of the stand-in: S1 (2026-09-13..10-03 vs the 2024 window, has local units) | current
+  snapshot_utc: '2026-11-03T00:00:00Z'
+  label: 'MOCK — NOT 2026 RESULTS'
+  prefix: MOCK-NOT-2026-RESULTS_
+outputs:
+  mock: reports/mock2026
+  live: reports/2026
+  level_file: reports/2026/treatment_level_2026.json
+  holiday_prices: reports/validation/holiday_price_sc.csv
+  balance: reports/validation/T4_balance_2026  # .csv and .md
+house:
+  enabled: true
+  status: 'not_run: deferred to later stage'
+substate:
+  source: county_markets    # county_markets | metro
+  comparison: blocks        # blocks | strata
+  block_size: 4
+  block_seed: 202610310
+  block_restarts: 20
+  blocks_file: config/metro_blocks.csv
+  market_blocks_file: config/market_blocks.csv
+lag:
+  # Lagged-burden control B^lag. Production: the state-level lag only. true adds the 2020->2024 metro layer
+  # (recentred within blocks or strata); that version is the robustness row R_metro_lag, not the main specification.
+  metro_layer: false
+translation:
+  monthly_income: 6659
+  source: 'household-weighted median of county median household incomes, ACS 2020–2024 5-year (data/processed/exposure_county.parquet)'
+robustness:
+  R2: minimal controls
+  R3: C2 controls
+  R5: without pass-through control
+  R7: exclude holidays in either window
+  R13: leave one state and one PADD group out
+  R19: vehicles-only exposure
+  R_price_only: the recentered market price rise alone, without exposure (race effects absorb the state layer)
+  R_metro: metro block design with metro prices (robustness for the county-market main design)
+  R_metro_lag: lagged burden with the metro layer
+  R12: Senate and governor races separately
+  F5: vote share with a slope per race on the 2024 presidential share
+  F6: F5 plus a slope per race on the previous midterm's statewide share
+  F3: same-office baseline (governor from 2022, Senate from the previous race for the seat)

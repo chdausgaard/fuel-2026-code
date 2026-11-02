@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fb26"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "requests", "beautifulsoup4", "lxml", "polars", "pyarrow", "pyyaml", "python-dotenv", "numpy", "scipy",
+]
+
+[dependency-groups]
+dev = ["pytest", "pre-commit", "statsmodels"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fb26"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
