@@ -114,6 +114,16 @@ def window_bounds(win: dict, year: int, n: int = DEFAULT_WINDOW_DAYS) -> tuple[d
     return ed - timedelta(days=n), ed - timedelta(days=1)
 
 
+def window_open(aaa: pl.DataFrame, win: dict, year: int, n: int = DEFAULT_WINDOW_DAYS, ky: bool = False) -> bool:
+    """A provisional cycle stays provisional until the AAA state prices reach the last day of its post window
+    (W(ED) = [ED - n, ED - 1]; Oct 31 of the year for the 12-month block), as `substate_shocks` does for counties."""
+    if year not in PROVISIONAL_CYCLES:
+        return False
+    end = date(year, 10, 31) if ky else window_bounds(win, year, n)[1]
+    last = aaa['as_of_date'].max() if aaa.height else None
+    return last is None or last < end
+
+
 # ---------------------------------------------------------------- daily values
 
 def daily_values(prices: pl.DataFrame, tol: float = TIE_TOL) -> pl.DataFrame:
@@ -478,6 +488,7 @@ def build(aaa: pl.DataFrame, eia: pl.DataFrame, seds: pl.DataFrame, win: dict, u
     groups = dict(zip(abbrs, units['padd_group']))
     rows = []
     for t in cycles:
+        open_t = window_open(aaa, win, t, window_days, ky)
         if ky:
             post_key, b = KY_KEY + t, KY_KEY + t - 1
             hi, lo = KY_KEY + t - 2, KY_KEY + t - 3
@@ -495,7 +506,7 @@ def build(aaa: pl.DataFrame, eia: pl.DataFrame, seds: pl.DataFrame, win: dict, u
         for s in abbrs:
             r, lg = sh[s], lag[s]
             flags = list(r['flags'])
-            if t in PROVISIONAL_CYCLES:
+            if open_t:
                 flags.append('provisional_window_open')
             if s == 'AK':
                 flags.append('alaska_not_in_sample')
@@ -551,7 +562,7 @@ def build(aaa: pl.DataFrame, eia: pl.DataFrame, seds: pl.DataFrame, win: dict, u
                 lag_delta_p=lg['delta_p'], lag_group_mean=lg['group_mean'], lag_deviation=lg['deviation'],
                 lag_source_used=lg['source_used'], lag_n_days_post=lg['n_post'], lag_n_days_pre=lg['n_pre'],
                 g_nat=g_nat, g_pt=g_pt, pt_intercept=icpt, pt_slope=slope, pt_r2=r2, pt_n_pairs=n_pairs,
-                provisional=t in PROVISIONAL_CYCLES, flags=';'.join(sorted(set(flags))),
+                provisional=open_t, flags=';'.join(sorted(set(flags))),
                 price_inputs=price_inputs, code_version=CODE_VERSION))
     out = pl.DataFrame(rows, schema=OUT_SCHEMA).sort('year', 'state_abbr')
     if window_days != DEFAULT_WINDOW_DAYS and not ky:  # the default file keeps its schema (byte-identical rebuilds)
@@ -657,7 +668,7 @@ def main(window_days: int = DEFAULT_WINDOW_DAYS, baseline: str = 'year') -> None
         spec_id='ws4_shocks', data_snapshot_ids=inputs,
         output_path=f'data/processed/shocks{suffix}.parquet;reports/validation/shock_sources{suffix}.csv',
         notes=f'{CODE_VERSION}; rows={shocks.height}; cycles={list(CYCLES)}; window_days={window_days}; baseline={baseline}; '
-              f'tie_tol={TIE_TOL}; 2026 provisional')
+              f'tie_tol={TIE_TOL}; 2026 provisional={bool(shocks.filter(pl.col("year") == 2026)["provisional"].any())}')
     print(f'wrote {out} ({shocks.height} rows) and shock_sources{suffix}.csv ({src.height} rows)')
 
 
